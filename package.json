@@ -1,0 +1,51 @@
+{
+  "name": "cross-repo-graph",
+  "version": "0.1.0",
+  "description": "Local MCP server with a code graph across all repositories of a project: symbols, calls, and cross-repo HTTP / config / package links with file:line evidence.",
+  "keywords": [
+    "mcp",
+    "code-graph",
+    "polyrepo",
+    "cross-repo",
+    "claude-code",
+    "graphify"
+  ],
+  "license": "Apache-2.0",
+  "author": "Arsen Superman",
+  "type": "module",
+  "bin": {
+    "cross-repo-graph": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "NOTICE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p .",
+    "typecheck": "tsc -p . --noEmit",
+    "test": "tsx --test tests/unit/*.test.ts",
+    "prepare": "tsc -p ."
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "express": "^5.3.0",
+    "picomatch": "^4.0.7",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.6",
+    "@types/picomatch": "^4.0.3",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arsen-superman/cross-repo-graph.git"
+  }
+}

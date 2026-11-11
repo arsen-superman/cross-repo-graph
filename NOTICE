@@ -1,0 +1,10 @@
+cross-repo-graph
+Copyright 2026 Arsen Superman
+
+This product includes software derived from Graphify
+(https://github.com/Graphify-Labs/graphify), licensed under the Apache License, Version 2.0.
+src/server/graph-tools.ts is a TypeScript port of graphify.serve 0.9.66 (query_graph, get_node,
+get_neighbors, shortest_path). Changes: ported from Python to TypeScript; runs over a merged
+multi-repository graph; community, attributes, rationale and learning-overlay features removed.
+
+Graphify itself is not bundled: the indexer runs it through uvx at index time.
