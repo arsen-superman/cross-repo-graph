@@ -14,12 +14,14 @@ cross-repo-graph index                       cross-repo-graph serve
    └─ repo C ─┘ cross-repo linker               ├─ dependencies        (between repos, file:line)
                      │                          └─ architecture_hubs   (central classes of a repo)
                      ▼
-   .ai/.index/  graph.json · links.json · repos.json      ◄── read by the server, hot-reloaded
+   .ai/.index/scopes/{dev,prod}/  graph.json · links.json · repos.json   ◄── read by the server, hot-reloaded
 ```
 
-- **Indexer.** It finds every git repo one or two levels below the project folder and skips `worktrees/`. It runs [Graphify](https://github.com/Graphify-Labs/graphify) on each repo (AST only, `.gitignore` respected), merges the graphs, then adds cross-repo links. A repo is re-extracted only when its HEAD or uncommitted changes differ from the last run, so an unchanged project re-indexes in about 2 s. Output files are replaced atomically, and a lock stops concurrent runs.
+- **Indexer.** It finds every git repo one or two levels below the project folder and skips `worktrees/`. For each **scope** it takes that scope's branch from git, not from the folder on disk, so a feature branch checked out in a clone or an uncommitted edit never leaks into the graph and the clone is never touched. It runs [Graphify](https://github.com/Graphify-Labs/graphify) on that tree (AST only), merges the graphs, then adds cross-repo links. A (repo, commit) is extracted and parsed once, whichever scopes point at it, so an unchanged project re-indexes in a few seconds. Output files are replaced atomically, and a lock stops concurrent runs.
+- **Scopes.** By default there are two. `dev` uses `develop`, falling back to the default branch; use it for features, bugs and spikes. `prod` uses `main` or `master`, falling back to the default branch; that is what runs in production, so use it for hotfixes. For every branch, `origin/<branch>` wins over the local one. `--working-tree` indexes the clones exactly as they are on disk instead, as a single `dev` scope.
+- **Fetch.** With `--fetch` the indexer first runs `git fetch origin <scope branches>` in parallel. It only updates `origin/*` refs, never your branches or working copy. It never prompts for a password (an SSH agent still signs, so 1Password may ask once to approve), and it gives up on a repo after 20 s. `--fetch-min-interval 30` skips the fetch when the last one is under 30 minutes old. Without a fetch the graph is as fresh as your last `git fetch` or `pull`; `list_repos` flags repos whose origin wasn't fetched for 3 days.
 - **Server.** It is read-only. It loads the graph once and reloads it when `graph.json` changes, and every answer fits a token budget. It does not read or search file contents: agents already have their own file tools.
-- **Nothing leaves the machine.** No LLM, no network at run time (uv downloads Graphify once).
+- **Nothing leaves the machine.** No LLM. The only network use is the optional `git fetch` and uv downloading Graphify once.
 
 The linker currently understands ASP.NET Core (C#, F#, minimal API), Angular/TypeScript HTTP clients, ng-openapi-gen, NSwag, Refit, `appsettings*.json`, `environment*.ts` and Vite/CRA `.env.<environment>` files (public prefixes only). For other stacks you still get the per-repo AST graph.
 
@@ -36,11 +38,22 @@ npx -y cross-repo-graph index                 # → .ai/.index/
 npx -y cross-repo-graph serve                 # MCP over stdio
 
 # options
-cross-repo-graph index --project <dir> --index <dir> [--force] [--hosts hosts.json]
+cross-repo-graph index --project <dir> --index <dir> [--fetch [--fetch-min-interval 30]] [--working-tree] [--force] [--hosts hosts.json]
 cross-repo-graph serve --index <dir> [--http 3917] [--host 127.0.0.1]
 ```
 
 `--hosts` takes `{ "timetracking.example.com": "timetracking-api" }` entries for services whose host the linker can't attribute on its own.
+
+Optional `<index>/config.json`:
+
+```jsonc
+{
+  "scopes": { "dev": "develop|default", "prod": "main|master|default" },  // branch candidates, first existing wins
+  "repos":  { "legacy-api": { "prod": "release" } },                       // per-repo overrides
+  "fetch":  true,                                                          // false: --fetch is ignored
+  "hosts":  { "timetracking.example.com": "timetracking-api" }
+}
+```
 
 ### Claude Code
 
@@ -56,9 +69,11 @@ With the [agent-playbook](https://github.com/arsen-superman/agent-playbook) `cod
 
 ## Tools
 
+Every tool takes an optional `scope` (default `dev`).
+
 | Tool | Use it for |
 |---|---|
-| `list_repos` | what is indexed: repo keys, folders, branch, commit, dirty, time |
+| `list_repos` | what a scope contains: repo keys, branch and commit, when origin was last fetched, available scopes |
 | `dependencies` | who calls whom between repos; with `repo` — incoming and outgoing calls with `file:line` and the config chain; impact of an API change = `used` links |
 | `get_neighbors` | direct callers / callees of a symbol, including HTTP calls from other repos |
 | `query_graph` | find symbols by name and expand their neighbourhood (BFS) or trace a path (DFS) |

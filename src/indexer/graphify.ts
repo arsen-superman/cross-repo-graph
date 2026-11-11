@@ -8,6 +8,7 @@ export const GRAPHIFY_VERSION = "0.9.66";
 
 function command(): [string, string[]] {
   const custom = process.env.CRG_GRAPHIFY?.trim();
+  if (custom?.startsWith("[")) { const [c, ...a] = JSON.parse(custom) as string[]; return [c, a]; }   // ["node", "fake.mjs"] in tests
   if (custom) return [custom, []];
   return ["uvx", ["--quiet", "--from", `graphifyy==${GRAPHIFY_VERSION}`, "graphify"]];
 }
